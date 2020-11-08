@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+
+from os import environ
+from time import sleep
+
+import paho.mqtt.publish
+import requests
+
+DEBUG = environ.get('DEBUG') == '1'
+MQTT_CLIENT_ID = environ.get('MQTT_CLIENT_ID', 'openweathermaps2mqtt')
+MQTT_HOST = environ.get('MQTT_HOST', 'localhost')
+MQTT_PORT = int(environ.get('MQTT_PORT', '1883'))
+MQTT_QOS = int(environ.get('MQTT_QOS', 1))
+MQTT_TOPIC = environ.get('MQTT_TOPIC', 'weather')
+SKIP_LIST = environ.get('SKIP_LIST', 'lat,lon,timezone,timezone_offset').replace(' ', '').split(',')
+WAIT_TIME = int(environ.get('WAIT_TIME', '600'))  # How long to wait between weather fetches
+WEATHER_URL = environ.get('WEATHER_URL')
+
+
+def get_weather():
+    """Fetch weather data from openweathermaps.
+    """
+    r = requests.get(WEATHER_URL, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def send_mqtt(topic, payload):
+    try:
+        if DEBUG:
+            print(f'Sending to MQTT: {topic}: {payload}')
+        paho.mqtt.publish.single(topic, payload=payload, qos=MQTT_QOS, hostname=MQTT_HOST, port=MQTT_PORT)
+
+    except Exception as ex:
+        print("MQTT Publish Failed: " + str(ex))
+
+
+def flatten_json(json_obj, sep='/'):
+    """Recursively parse a JSON object to produce a flattened namespace.
+
+    Arguments:
+
+        json_obj
+            The JSON object to flatten.
+
+        sep
+            The character to indicate nesting levels with. Default: /
+    """
+    out = {}
+
+    def flatten(local_obj, name=''):
+        if type(local_obj) is dict:
+            for key in local_obj:
+                new_name = (name + sep + key) if name else key
+                flatten(local_obj[key], new_name)
+
+        elif type(local_obj) is list:
+            for i, key in enumerate(local_obj):
+                new_name = (name + sep + str(i)) if name else str(i)
+                flatten(key, new_name)
+
+        else:
+            out[name] = local_obj
+
+    flatten(json_obj)
+
+    return out
+
+
+def in_skiplist(key):
+    """Returns True if key starts with one of the words in SKIP_LIST.
+    """
+    for skip_key in SKIP_LIST:
+        if key.startswith(skip_key):
+            return True
+
+    return False
+
+
+if __name__ == '__main__':
+    if not WEATHER_URL:
+        print('WEATHER_URL is not set!')
+        exit(1)
+
+    while True:
+        try:
+            weather_data = get_weather()
+            for key,value in flatten_json(weather_data).items():
+                if in_skiplist(key):
+                    continue
+                send_mqtt(f'{MQTT_TOPIC}/{key}', value)
+        except requests.ConnectionError as e:
+            print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
+
+        if DEBUG:
+            print(f'Sleeping {WAIT_TIME} seconds...')
+        sleep(WAIT_TIME)
