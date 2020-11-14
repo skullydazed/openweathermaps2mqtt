@@ -85,11 +85,11 @@ if __name__ == '__main__':
     while True:
         try:
             weather_data = get_weather()
-            for key,value in flatten_json(weather_data).items():
+            for key, value in flatten_json(weather_data).items():
                 if in_skiplist(key):
                     continue
                 send_mqtt(f'{MQTT_TOPIC}/{key}', value)
-        except requests.ConnectionError as e:
+        except Exception as e:
             print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
 
         if DEBUG:
