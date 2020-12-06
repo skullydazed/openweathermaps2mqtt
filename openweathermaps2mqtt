@@ -29,7 +29,7 @@ def send_mqtt(topic, payload):
     try:
         if DEBUG:
             print(f'Sending to MQTT: {topic}: {payload}')
-        paho.mqtt.publish.single(topic, payload=payload, qos=MQTT_QOS, hostname=MQTT_HOST, port=MQTT_PORT)
+        paho.mqtt.publish.single(topic, payload=payload, qos=MQTT_QOS, hostname=MQTT_HOST, port=MQTT_PORT, retain=True)
 
     except Exception as ex:
         print("MQTT Publish Failed: " + str(ex))
@@ -77,6 +77,24 @@ def in_skiplist(key):
     return False
 
 
+def is_temperature(key):
+    """Returns True if key is a temperature.
+    """
+    key = key.split('/')
+
+    if key[0] == 'daily':
+        if key[2] in ('temp', 'feels_like'):
+            return True
+
+    return False
+
+
+def C_to_F(temperature_C):
+    """Converts temperature_C to temperature_F.
+    """
+    return (float(temperature_C) * 9/5) + 32
+
+
 if __name__ == '__main__':
     if not WEATHER_URL:
         print('WEATHER_URL is not set!')
@@ -87,8 +105,13 @@ if __name__ == '__main__':
             weather_data = get_weather()
             for key, value in flatten_json(weather_data).items():
                 if in_skiplist(key):
-                    continue
-                send_mqtt(f'{MQTT_TOPIC}/{key}', value)
+                    pass
+                elif is_temperature(key):
+                    send_mqtt(f'{MQTT_TOPIC}/{key}_C', value)
+                    send_mqtt(f'{MQTT_TOPIC}/{key}_F', C_to_F(value))
+                else:
+                    send_mqtt(f'{MQTT_TOPIC}/{key}', value)
+
         except Exception as e:
             print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
 
