@@ -83,7 +83,7 @@ def is_temperature(key):
     key = key.split('/')
 
     if key[0] == 'daily':
-        if key[2] in ('dew_point', 'temp', 'feels_like'):
+        if len(key) > 2 and key[2] in ('dew_point', 'temp', 'feels_like'):
             return True
 
     return False
