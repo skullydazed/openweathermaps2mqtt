@@ -13,7 +13,7 @@ MQTT_PORT = int(environ.get('MQTT_PORT', '1883'))
 MQTT_QOS = int(environ.get('MQTT_QOS', 1))
 MQTT_TOPIC = environ.get('MQTT_TOPIC', 'weather')
 SKIP_LIST = environ.get('SKIP_LIST', 'lat,lon,timezone,timezone_offset').replace(' ', '').split(',')
-WAIT_TIME = int(environ.get('WAIT_TIME', '600'))  # How long to wait between weather fetches
+WAIT_TIME = int(environ.get('WAIT_TIME', '3600'))  # How long to wait between weather fetches
 WEATHER_URL = environ.get('WEATHER_URL')
 
 
