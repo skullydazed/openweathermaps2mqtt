@@ -49,12 +49,12 @@ def flatten_json(json_obj, sep='/'):
     out = {}
 
     def flatten(local_obj, name=''):
-        if type(local_obj) is dict:
+        if isinstance(local_obj, dict):
             for key in local_obj:
                 new_name = (name + sep + key) if name else key
                 flatten(local_obj[key], new_name)
 
-        elif type(local_obj) is list:
+        elif isinstance(local_obj, list):
             for i, key in enumerate(local_obj):
                 new_name = (name + sep + str(i)) if name else str(i)
                 flatten(key, new_name)
