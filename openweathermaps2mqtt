@@ -105,7 +105,7 @@ if __name__ == '__main__':
                 else:
                     msgs.append(make_msg(f'{MQTT_TOPIC}/{key}', value))
             if not DEBUG:
-                paho.mqtt.publish.multiple(msgs, hostname=MQTT_HOST, port=MQTT_PORT)
+                paho.mqtt.publish.multiple(msgs, hostname=MQTT_HOST, port=MQTT_PORT, client_id=MQTT_CLIENT_ID)
 
         except requests.exceptions.RequestException as e:
             print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
