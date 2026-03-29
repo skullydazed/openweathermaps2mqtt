@@ -76,13 +76,7 @@ def in_skiplist(key):
 def is_temperature(key):
     """Returns True if key is a temperature.
     """
-    key = key.split('/')
-
-    if key[0] == 'daily':
-        if len(key) > 2 and key[2] in ('dew_point', 'temp', 'feels_like'):
-            return True
-
-    return False
+    return key.split('/')[-1] in ('temp', 'feels_like', 'dew_point')
 
 
 def C_to_F(temperature_C):
