@@ -25,10 +25,10 @@ def get_weather():
     return r.json()
 
 
-def send_mqtt(topic, payload):
+def make_msg(topic, payload):
     if DEBUG:
-        print(f'Sending to MQTT: {topic}: {payload}')
-    paho.mqtt.publish.single(topic, payload=payload, qos=MQTT_QOS, hostname=MQTT_HOST, port=MQTT_PORT, retain=True)
+        print(f'Queuing for MQTT: {topic}: {payload}')
+    return {'topic': topic, 'payload': payload, 'qos': MQTT_QOS, 'retain': True}
 
 
 def flatten_json(json_obj, sep='/'):
@@ -95,14 +95,17 @@ if __name__ == '__main__':
     while True:
         try:
             weather_data = get_weather()
+            msgs = []
             for key, value in flatten_json(weather_data).items():
                 if in_skiplist(key):
                     pass
                 elif is_temperature(key):
-                    send_mqtt(f'{MQTT_TOPIC}/{key}_C', value)
-                    send_mqtt(f'{MQTT_TOPIC}/{key}_F', C_to_F(value))
+                    msgs.append(make_msg(f'{MQTT_TOPIC}/{key}_C', value))
+                    msgs.append(make_msg(f'{MQTT_TOPIC}/{key}_F', C_to_F(value)))
                 else:
-                    send_mqtt(f'{MQTT_TOPIC}/{key}', value)
+                    msgs.append(make_msg(f'{MQTT_TOPIC}/{key}', value))
+            if not DEBUG:
+                paho.mqtt.publish.multiple(msgs, hostname=MQTT_HOST, port=MQTT_PORT)
 
         except requests.exceptions.RequestException as e:
             print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
