@@ -82,6 +82,8 @@ def is_temperature(key):
 def C_to_F(temperature_C):
     """Converts temperature_C to temperature_F.
     """
+    if temperature_C is None:
+        return None
     return (float(temperature_C) * 9/5) + 32
 
 
