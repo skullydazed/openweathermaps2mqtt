@@ -26,13 +26,9 @@ def get_weather():
 
 
 def send_mqtt(topic, payload):
-    try:
-        if DEBUG:
-            print(f'Sending to MQTT: {topic}: {payload}')
-        paho.mqtt.publish.single(topic, payload=payload, qos=MQTT_QOS, hostname=MQTT_HOST, port=MQTT_PORT, retain=True)
-
-    except Exception as ex:
-        print("MQTT Publish Failed: " + str(ex))
+    if DEBUG:
+        print(f'Sending to MQTT: {topic}: {payload}')
+    paho.mqtt.publish.single(topic, payload=payload, qos=MQTT_QOS, hostname=MQTT_HOST, port=MQTT_PORT, retain=True)
 
 
 def flatten_json(json_obj, sep='/'):
@@ -112,7 +108,7 @@ if __name__ == '__main__':
                 else:
                     send_mqtt(f'{MQTT_TOPIC}/{key}', value)
 
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
 
         if DEBUG:
