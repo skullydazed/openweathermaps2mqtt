@@ -4,7 +4,8 @@ ENV LANG=C.UTF-8
 
 # Pre-reqs
 RUN apt update && \
-    apt install --no-install-recommends -y python3-paho-mqtt python3-requests && \
+    apt install --no-install-recommends -y python3-paho-mqtt python3-requests python3-pip && \
+    pip3 install milc --break-system-packages && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy files into place

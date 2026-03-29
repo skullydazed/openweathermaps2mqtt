@@ -5,30 +5,22 @@ from time import sleep
 
 import paho.mqtt.publish
 import requests
+from milc import cli
 
-DEBUG = environ.get('DEBUG') == '1'
-MQTT_CLIENT_ID = environ.get('MQTT_CLIENT_ID', 'openweathermaps2mqtt')
-MQTT_HOST = environ.get('MQTT_HOST', 'localhost')
-MQTT_PORT = int(environ.get('MQTT_PORT', '1883'))
-MQTT_QOS = int(environ.get('MQTT_QOS', 1))
-MQTT_TOPIC = environ.get('MQTT_TOPIC', 'weather')
-SKIP_LIST = environ.get('SKIP_LIST', 'lat,lon,timezone,timezone_offset').replace(' ', '').split(',')
-WAIT_TIME = int(environ.get('WAIT_TIME', '3600'))  # How long to wait between weather fetches
-WEATHER_URL = environ.get('WEATHER_URL')
+cli.milc_options(name='openweathermaps2mqtt', author='zwhite')
 
 
-def get_weather():
+def get_weather(url):
     """Fetch weather data from openweathermaps.
     """
-    r = requests.get(WEATHER_URL, timeout=30)
+    r = requests.get(url, timeout=30)
     r.raise_for_status()
     return r.json()
 
 
-def make_msg(topic, payload):
-    if DEBUG:
-        print(f'Queuing for MQTT: {topic}: {payload}')
-    return {'topic': topic, 'payload': payload, 'qos': MQTT_QOS, 'retain': True}
+def make_msg(topic, payload, qos):
+    cli.log.debug('Queuing for MQTT: %s: %s', topic, payload)
+    return {'topic': topic, 'payload': payload, 'qos': qos, 'retain': True}
 
 
 def flatten_json(json_obj, sep='/'):
@@ -63,10 +55,10 @@ def flatten_json(json_obj, sep='/'):
     return out
 
 
-def in_skiplist(key):
-    """Returns True if key starts with one of the words in SKIP_LIST.
+def in_skiplist(key, skip_list):
+    """Returns True if key starts with one of the words in skip_list.
     """
-    for skip_key in SKIP_LIST:
+    for skip_key in skip_list:
         if key.startswith(skip_key):
             return True
 
@@ -87,29 +79,42 @@ def C_to_F(temperature_C):
     return (float(temperature_C) * 9/5) + 32
 
 
-if __name__ == '__main__':
-    if not WEATHER_URL:
-        print('WEATHER_URL is not set!')
-        exit(1)
+@cli.argument('--weather-url', default=environ.get('WEATHER_URL'), required=not environ.get('WEATHER_URL'), help='OpenWeatherMap One Call API URL')
+@cli.argument('--mqtt-host', default=environ.get('MQTT_HOST', 'localhost'), help='MQTT broker hostname')
+@cli.argument('--mqtt-port', default=int(environ.get('MQTT_PORT', '1883')), type=int, help='MQTT broker port')
+@cli.argument('--mqtt-qos', default=int(environ.get('MQTT_QOS', '1')), type=int, help='MQTT QoS level')
+@cli.argument('--mqtt-topic', default=environ.get('MQTT_TOPIC', 'weather'), help='MQTT topic prefix')
+@cli.argument('--mqtt-client-id', default=environ.get('MQTT_CLIENT_ID', 'openweathermaps2mqtt'), help='MQTT client ID')
+@cli.argument('--skip-list', default=environ.get('SKIP_LIST', 'lat,lon,timezone,timezone_offset'), help='Comma-separated keys to skip')
+@cli.argument('--wait-time', default=int(environ.get('WAIT_TIME', '3600')), type=int, help='Seconds between fetches')
+@cli.argument('--dry-run', action='store_true', default=False, help='Print messages without publishing to MQTT')
+@cli.entrypoint('Fetch weather data from OpenWeatherMap and publish to MQTT')
+def main(cli):
+    skip_list = cli.args.skip_list.replace(' ', '').split(',')
 
     while True:
         try:
-            weather_data = get_weather()
+            weather_data = get_weather(cli.args.weather_url)
             msgs = []
             for key, value in flatten_json(weather_data).items():
-                if in_skiplist(key):
+                if in_skiplist(key, skip_list):
                     pass
                 elif is_temperature(key):
-                    msgs.append(make_msg(f'{MQTT_TOPIC}/{key}_C', value))
-                    msgs.append(make_msg(f'{MQTT_TOPIC}/{key}_F', C_to_F(value)))
+                    msgs.append(make_msg(f'{cli.args.mqtt_topic}/{key}_C', value, cli.args.mqtt_qos))
+                    msgs.append(make_msg(f'{cli.args.mqtt_topic}/{key}_F', C_to_F(value), cli.args.mqtt_qos))
                 else:
-                    msgs.append(make_msg(f'{MQTT_TOPIC}/{key}', value))
-            if not DEBUG:
-                paho.mqtt.publish.multiple(msgs, hostname=MQTT_HOST, port=MQTT_PORT, client_id=MQTT_CLIENT_ID)
+                    msgs.append(make_msg(f'{cli.args.mqtt_topic}/{key}', value, cli.args.mqtt_qos))
+            if not cli.args.dry_run:
+                paho.mqtt.publish.multiple(msgs, hostname=cli.args.mqtt_host, port=cli.args.mqtt_port, client_id=cli.args.mqtt_client_id)
+            else:
+                cli.log.info('Dry run: %d messages not published', len(msgs))
 
         except requests.exceptions.RequestException as e:
-            print(f'Could not fetch weather: {e.__class__.__name__}: {e}')
+            cli.log.error('Could not fetch weather: %s: %s', e.__class__.__name__, e)
 
-        if DEBUG:
-            print(f'Sleeping {WAIT_TIME} seconds...')
-        sleep(WAIT_TIME)
+        cli.log.debug('Sleeping %d seconds...', cli.args.wait_time)
+        sleep(cli.args.wait_time)
+
+
+if __name__ == '__main__':
+    cli()
