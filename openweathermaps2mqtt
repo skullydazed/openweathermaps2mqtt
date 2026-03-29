@@ -111,6 +111,10 @@ def main(cli):
 
         except requests.exceptions.RequestException as e:
             cli.log.error('Could not fetch weather: %s: %s', e.__class__.__name__, e)
+        except Exception as e:
+            cli.log.error('%s: %s', e.__class__.__name__, e)
+            cli.log.exception('MQTT publish failed')
+            raise
 
         cli.log.debug('Sleeping %d seconds...', cli.args.wait_time)
         sleep(cli.args.wait_time)
