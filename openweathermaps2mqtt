@@ -10,6 +10,9 @@ from milc import cli
 cli.milc_options(name='openweathermaps2mqtt', author='zwhite')
 
 
+TEMPERATURE_KEYS = ('temp', 'feels_like', 'dew_point')
+
+
 def get_weather(url):
     """Fetch weather data from openweathermaps.
     """
@@ -68,7 +71,9 @@ def in_skiplist(key, skip_list):
 def is_temperature(key):
     """Returns True if key is a temperature.
     """
-    return key.split('/')[-1] in ('temp', 'feels_like', 'dew_point')
+    topic_parts = key.split('/')
+
+    return topic_parts[-1] in TEMPERATURE_KEYS or topic_parts[-2] in TEMPERATURE_KEYS
 
 
 def C_to_F(temperature_C):
